@@ -6,6 +6,6 @@ LIBS= \
    -lgecodefloat     -lgecodeint    \
    -lgecodekernel    -lgecodesupport
 
-p: p.cpp
-	g++ -I$(DIR)/include -c p.cpp
-	g++ -L$(DIR)/lib -o p p.o $(LIBS)
+all: logic-synthesis.cpp
+	g++ -I$(DIR)/include -c logic-synthesis.cpp
+	g++ -L$(DIR)/lib -o logic.x logic-synthesis.o $(LIBS)

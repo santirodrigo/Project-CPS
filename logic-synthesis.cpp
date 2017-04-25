@@ -8,15 +8,24 @@
 #include <gecode/minimodel.hh>
 #include <gecode/search.hh>
 #include <math.h>
+#include <vector>
+#include <csignal>
 
 using namespace Gecode;
 using namespace std;
+
+struct Solution {
+  int size;
+  vector<int> nodes;
+};
+
+Solution sol_str;
 
 class LogicSynthesis : public Space {
 private:
     int maxDepth;
     int nVars;
-    int* truthTable;
+    vector<int> truthTable;
 
 protected:
     IntVarArray nodes;
@@ -24,49 +33,49 @@ protected:
     BoolVarArray outputs, isNOR;
 
 public:
-    LogicSynthesis(int maxD, int nV, int* truthT) : 
+    LogicSynthesis(int maxD, int nV, vector<int>& truthT) : 
       maxDepth(maxD), nVars(nV),  
       truthTable(truthT), 
       nodes(*this, (int) pow(2,maxDepth+1)-1, -2, nVars),
       size(*this, 1, (int) pow(2,maxDepth)-1),
-      outputs(*this, (int) (nodes.size() * pow(2,nVars), 0, 1),
+      outputs(*this, (int) (nodes.size() * pow(2,nVars)), 0, 1),
       isNOR(*this, nodes.size(), 0, 1) {
+        rel(*this, nodes[0] == -1); // The Boolean function to be implemented requires at least one NOR gateint input[nVars];
         int input[nVars];
         for (int x = 0; x < nVars; x++) {
             input[x] = 0;
         }
         for (int i = 0; i < (int) pow(2, nVars); i++) {
             for (int n = 0; n < (int) (nodes.size()/2); n++) {
-                rel(*this, ((nodes[n] == 0) >> (outputs[n*pow(2,nVars)+i] == 0)));
-                rel(*this, ((nodes[n] > 0) >> (nodes[leftChild(n,maxDepth)] == -2 && nodes[rightChild(n,maxDepth)] == -2)));
-                rel(*this, ((nodes[n] == -1) >> (outputs[n*pow(2,nVars)+i] == !(outputs[leftChild(n,maxDepth)*pow(2,nVars)+i] || outputs[rightChild(n,maxDepth)*pow(2,nVars)+i]))));
+                rel(*this, (nodes[n] == -1) >> (outputs[n*pow(2,nVars)+i] == !(outputs[leftChild(n,maxDepth)*pow(2,nVars)+i] || outputs[rightChild(n,maxDepth)*pow(2,nVars)+i])));
+                rel(*this, (nodes[n] == 0) >> (outputs[n*pow(2,nVars)+i] == 0));
                 for (int v = 0; v < nVars; ++v) {
                     rel(*this, ((nodes[n] == v+1) >> (outputs[n*pow(2,nVars)+i] == input[v])));
                 }
             }
             for(int n = (int) (nodes.size()/2); n < nodes.size(); n++) {
+                rel(*this, ((nodes[n] == 0) >> (outputs[n*pow(2,nVars)+i] == 0)));
                 for (int v = 0; v < nVars; ++v) {
                     rel(*this, ((nodes[n] == v+1) >> (outputs[n*pow(2,nVars)+i] == input[v])));
                 }
             }
             rel(*this, (outputs[i] == truthTable[i])); // La salida del nodo 1 tiene que ser la tabla de verdad
             updateInput(input, nVars);
-        }        
-        rel(*this, nodes[0] == -1); // The Boolean function to be implemented requires at least one NOR gate
+        }
         for(int n = 0; n < (int) (nodes.size()/2); n++) {
+            rel(*this, (nodes[n] >= 0) >> (nodes[leftChild(n,maxDepth)] == -2 && nodes[rightChild(n,maxDepth)] == -2));
             rel(*this, (nodes[n] == -1) >> (nodes[leftChild(n,maxDepth)] > -2 && nodes[rightChild(n,maxDepth)] > -2));
+            rel(*this, (nodes[n] == -1) == (isNOR[n] == 1));
         }
         for(int n = (int) (nodes.size()/2); n < nodes.size(); n++) {
             rel(*this, nodes[n] != -1);
-            for(int i = 0; i < (int) pow(2, nVars); i++) {
-                rel(*this, ((nodes[n] == 0) >> (outputs[n*pow(2,nVars)+i] == 0)));
-            }
+            rel(*this, isNOR[n] == 0);
         }
-        for (int n = 0; n < nodes.size(); n++) {
-            // TODO: Bastaría con sustituir >> por == ??
-            rel(*this, (nodes[n] == -1) >> (isNOR[n] == 1));
-            rel(*this, (nodes[n] != -1) >> (isNOR[n] == 0));
-        }
+//        for (int n = 0; n < nodes.size(); n++) {
+//            // TODO: Bastaría con sustituir >> por == ??
+//            rel(*this, (nodes[n] == -1) >> (isNOR[n] == 1));
+//            rel(*this, (nodes[n] != -1) >> (isNOR[n] == 0));
+//        }
         linear(*this, isNOR, IRT_EQ, size);
         branch(*this, nodes, INT_VAR_NONE(), INT_VAL_MIN());
         //branch(*this, outputs, INT_VAR_NONE(), INT_VAL_MIN()); ¿Hace falta?
@@ -118,7 +127,7 @@ public:
     
     void print(void) const {
         cout << size.val() << endl;
-        for (int i = 0; i < (int) pow(2,maxDepth+1)-1; i++) {
+        for (int i = 0; i < nodes.size(); i++) {
             if (nodes[i].val() != -2) {
                 cout << i+1 << " ";
                 cout << nodes[i].val() << " ";
@@ -131,20 +140,54 @@ public:
             }
         }
     }
+    
+    Solution getSolution() {
+        Solution newSol;
+        newSol.size = size.val();
+        vector<int> n(nodes.size());
+        for (int i = 0; i < nodes.size(); i++) {
+            n[i] = nodes[i].val();
+        }
+        newSol.nodes = n;
+        return newSol;
+    }
+    
+    
 };
+
+void printSolution(struct Solution& sol) {
+    cout << sol.size << endl;
+    for (int i = 0; i < sol.nodes.size(); i++) {
+        if (sol.nodes[i] != -2) {
+            cout << i+1 << " ";
+            cout << sol.nodes[i] << " ";
+            if (sol.nodes[i] == -1) {
+                cout << 2*(i+1) << " ";
+                cout << 2*(i+1)+1 << endl;
+            } else {
+                cout << 0 << " " << 0 << endl;
+            }
+        }
+    }
+}
+
+void TERMHandler(int signal) {
+    printSolution(sol_str);
+    exit(124); // TIMEOUT
+}
 
 int main(int argc, char* argv[]) {
     try {
         int maxDepth, nVars;
         cin >> maxDepth;
         cin >> nVars;
-        int truthTable[(int) pow(2,nVars)];
-        for (int i = 0; i < sizeof(truthTable)/sizeof(truthTable[0]); i++) {
+        vector<int> truthTable((int) pow(2,nVars));
+        for (int i = 0; i < truthTable.size(); i++) {
             cin >> truthTable[i];
         }
         cout << maxDepth << endl;
         cout << nVars << endl;
-        for (int i = 0; i < sizeof(truthTable)/sizeof(truthTable[0]); i++) {
+        for (int i = 0; i < truthTable.size(); i++) {
             cout << truthTable[i] << endl;
         }
         LogicSynthesis* l = new LogicSynthesis(maxDepth, nVars, truthTable);
@@ -152,11 +195,16 @@ int main(int argc, char* argv[]) {
         delete l;
         int sol = 0;
         while (LogicSynthesis* l = e.next()) {
-            l->print();
+            sol_str = l->getSolution();
+            //l->print();
             sol = 1;
+            // Code for SIGTERM gracefully exit, to print the best solution
+            // found till then (saved in sol_str)
+//            signal(SIGTERM, TERMHandler);
             delete l;
         }
         if (!sol) cout << -1 << endl;
+        else printSolution(sol_str);
     } catch (Exception e) {
         cerr << "Gecode exception: " << e.what() << endl;
         return 1;
