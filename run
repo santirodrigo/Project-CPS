@@ -10,3 +10,4 @@ else
     echo "This script executes the ./logic.x Gecode model for solving the logic"
     echo "synthesis problem, iterating over the instances (.inp files) found in"
     echo "the ./instances folder, with a time limit of SEC seconds."
+fi
