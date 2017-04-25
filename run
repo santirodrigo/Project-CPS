@@ -1,0 +1,8 @@
+#!/bin/bash
+
+for filename in ./in_100/*.out; do
+    echo "$filename"
+#    ./checker < "$filename"
+    ./logic.x < "$filename" > "out/$(basename "$filename" .out).out"
+    read -rsp $'Press any key to continue...\n' -n1 key
+done
