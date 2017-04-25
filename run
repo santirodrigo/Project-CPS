@@ -1,8 +1,11 @@
 #!/bin/bash
 
-for filename in ./in_100/*.out; do
-    echo "$filename"
-#    ./checker < "$filename"
-    ./logic.x < "$filename" > "out/$(basename "$filename" .out).out"
-    read -rsp $'Press any key to continue...\n' -n1 key
-done
+if [ $# -eq 1 ]; then
+    for filename in ./instances/*.inp; do
+        timeout $1 ./logic.x < "$filename" > "out/$(basename "$filename" .inp).out"
+    done
+else
+    echo "Usage: ./run SEC"
+    echo "This script executes the ./logic.x Gecode model for solving the logic"
+    echo "synthesis problem, iterating over the instances (.inp files) found in"
+    echo "the ./instances folder, with a time limit of SEC seconds."
