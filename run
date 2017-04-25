@@ -1,6 +1,7 @@
 #!/bin/bash
 
 if [ $# -eq 1 ]; then
+    mkdir -p out
     for filename in ./instances/*.inp; do
         timeout $1 ./logic.x < "$filename" > "out/$(basename "$filename" .inp).out"
     done
