@@ -1,0 +1,18 @@
+#!/bin/bash
+#
+ #  Author:
+ #    Santiago Rodrigo <srodrigo@ac.upc.edu>
+ #  CPLEX model for logic synthesis problem, CPS project, may 2017
+#
+
+if [ $# -eq 1 ]; then
+    mkdir -p out
+    for filename in ./instances/*.inp; do
+        timeout $1 ./logic-cplex.x < "$filename" > "out/$(basename "$filename" .inp).out"
+    done
+else
+    echo "Usage: ./run SEC"
+    echo "This script executes the ./logic-cplex.x CPLEX model for solving the logic"
+    echo "synthesis problem, iterating over the instances (.inp files) found in"
+    echo "the ./instances folder, with a time limit of SEC seconds."
+fi
