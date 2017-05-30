@@ -3,13 +3,11 @@
 ILOSTLBEGIN
 
 const int bigM = 10000;
-const int DEBUG = 0;
 int maxDepth, nVars;
 
 IloNumVarArray nodes;
 IloNumVar size;
 IloNumVarArray outputs;
-//IloNumVarArray isNOR;
 
 int leftChild(int parent, int maxDepth) {
     return std::min((int) pow(2,maxDepth+1), 2*(parent+1)-1);
@@ -24,6 +22,8 @@ IloNumVar outRightChild(int n, int i) { return outputs[rightChild(n,maxDepth)*po
 IloNumVar outLeftChild(int n, int i) { return outputs[leftChild(n,maxDepth)*pow(2,nVars)+i]; }
 
 IloNumVar nod(int n, int v) { return nodes[n*(nVars+3)+v]; }
+IloNumVar nodRightChild(int n, int v) { return nodes[rightChild(n,maxDepth)*(nVars+3)+v]; }
+IloNumVar nodLeftChild(int n, int v) { return nodes[leftChild(n,maxDepth)*(nVars+3)+v]; }
 
 void updateInput(int* input, int nVars) {
 //We are considering input[0] as the value for 0 signal ==> always 0
@@ -51,14 +51,12 @@ int main() {
     for (int i = 0; i < truthTable.size(); i++) {
        cin >> truthTable[i];
     }
-    //nodes = IloNumVarArray(env, treeSize(maxDepth), -1, nVars, ILOINT);
-    //* nodes[n][v] represents wether the node n is corresponding to an input var
+    //* nodes[n][v] represents wether the node n is assigned to an input var
     /* v. v=0 represents the constant 0 signal, v=nVars+1 represents a NOR gate
     /* and v=nVars+2 represents unassigned */
     nodes = IloNumVarArray(env, treeSize(maxDepth) * (nVars + 3), 0, 1, ILOBOOL);
     size = IloNumVar(env, 1, treeSize(maxDepth-1), ILOINT);
     outputs = IloNumVarArray(env, treeSize(maxDepth) * pow(2,nVars), 0, 1, ILOBOOL);
-    //isNOR = IloNumVarArray(env, treeSize(maxDepth), 0, 1, ILOBOOL);
     
     // The first node should be always a NOR gate
     model.add(nod(0,nVars+1) == 1);
@@ -114,9 +112,9 @@ int main() {
             /* unassigned
             */
             // left child unassigned when var
-            model.add(nod(n,v) + nod(leftChild(n, maxDepth), nVars+2) >= 2*(nod(n,v)));
+            model.add(nod(n,v) + nodLeftChild(n, nVars+2) >= 2*(nod(n,v)));
             // right child unassigned when var
-            model.add(nod(n,v) + nod(rightChild(n, maxDepth), nVars+2) >= 2*(nod(n,v)));
+            model.add(nod(n,v) + nodRightChild(n, nVars+2) >= 2*(nod(n,v)));
         }
         // The following two constraints require the nodes value behind (childs) a
         /* certain node acting as unassigned to be kept unassigned
@@ -124,18 +122,18 @@ int main() {
         /* causes another accuracy problem on case nlsp_4_3_131.inp
         */
         // left child unassigned when unassigned
-        model.add(nod(n, nVars+2) + nod(leftChild(n, maxDepth), nVars+2) >= 2*(nod(n,nVars+2)));
+        model.add(nod(n, nVars+2) + nodLeftChild(n, nVars+2) >= 2*(nod(n,nVars+2)));
         // right child unassigned when unassigned
-        model.add(nod(n, nVars+2) + nod(rightChild(n, maxDepth), nVars+2) >= 2*(nod(n,nVars+2)));
+        model.add(nod(n, nVars+2) + nodRightChild(n, nVars+2) >= 2*(nod(n,nVars+2)));
         model.add(uniqueNodeValue == 1);
         uniqueNodeValue.end();
         // The following two constraints require the nodes behind (childs) a
         /* certain node acting as NOR gate to be assigned (NOR/var/0 constant)
         */
         // left child assigned when NOR
-        model.add(nod(n,nVars+1) + nod(leftChild(n, maxDepth), nVars+2) <= 1);
+        model.add(nod(n,nVars+1) + nodLeftChild(n, nVars+2) <= 1);
         // right child assigned when NOR
-        model.add(nod(n,nVars+1) + nod(rightChild(n, maxDepth), nVars+2) <= 1);
+        model.add(nod(n,nVars+1) + nodRightChild(n, nVars+2) <= 1);
         sumNORs += nod(n, nVars+1);
     }
     
@@ -173,19 +171,6 @@ int main() {
         cout << cplex.getObjValue() << endl;
         IloNumArray n(env);
         cplex.getValues(n, nodes);
-        if (DEBUG) {
-            // For debugging the case 4_3_36.inp
-            IloNumArray o(env);
-            cplex.getValues(o, outputs);
-            for (int i = 0; i < (int) pow(2, nVars); i++) {
-                cout << o[6*pow(2,nVars)+i] << " "; // 6, 14
-            }
-            cout << endl;
-            for (int i = 0; i < (nVars+3); i++) {
-                cout << n[6*(nVars+3)+i] << " ";
-            }
-            cout << endl;
-        }
         for (int i = 0; i < treeSize(maxDepth); i++) {
             if (n[i*(nVars+3)+nVars+2] == 0) {
                 cout << i+1 << " ";
