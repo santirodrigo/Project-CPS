@@ -1,0 +1,20 @@
+#!/bin/bash
+#
+ #  Author:
+ #    Santiago Rodrigo <srodrigo@ac.upc.edu>
+ #  SAT model for logic synthesis problem, CPS project, june 2017
+#
+
+if [ $# -eq 1 ]; then
+    mkdir -p out
+    for filename in ./instances/*.inp; do
+        timeout $1 ./logic-sat.x < "$filename" > "out/$(basename "$filename" .inp).out"
+    done
+else
+    echo "Usage: ./run SEC"
+    echo "This script executes the ./logic-sat.x SAT model for solving the logic"
+    echo "synthesis problem, iterating over the instances (.inp files) found in"
+    echo "the ./instances folder, with a time limit of SEC seconds."
+    echo "lingeling SAT solver is internaly used: it is assumed to be already"
+    echo "installed in your computer"
+fi
