@@ -1,0 +1,7 @@
+#!/bin/bash
+
+for filename in ./out_100_bestmatch/*.out; do
+    echo "$filename"
+    ./checker < "$filename"
+#    read -rsp $'Press any key to continue...\n' -n1 key
+done
